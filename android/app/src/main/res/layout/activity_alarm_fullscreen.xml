@@ -1,0 +1,48 @@
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:gravity="center"
+    android:orientation="vertical"
+    android:padding="32dp"
+    android:background="@android:color/black">
+
+    <TextView
+        android:id="@+id/alarm_title"
+        android:text="⏰ Wake Up!"
+        android:textSize="30sp"
+        android:textStyle="bold"
+        android:textColor="#FFFFFF"
+        android:layout_marginBottom="24dp"
+        android:gravity="center"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content" />
+
+    <TextView
+        android:id="@+id/alarm_message"
+        android:text="It's time to start your day!"
+        android:textSize="18sp"
+        android:textColor="#CCCCCC"
+        android:layout_marginBottom="48dp"
+        android:gravity="center"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content" />
+
+    <Button
+        android:id="@+id/btn_dismiss"
+        android:text="Dismiss"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:textAllCaps="false"
+        android:backgroundTint="#FF3B30"
+        android:textColor="#FFFFFF"
+        android:layout_marginBottom="16dp" />
+
+    <Button
+        android:id="@+id/btn_snooze"
+        android:text="Snooze 5 min"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:textAllCaps="false"
+        android:backgroundTint="#34C759"
+        android:textColor="#FFFFFF" />
+</LinearLayout>
