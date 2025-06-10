@@ -1,30 +1,103 @@
+// echotrail_frontend\echo_trail\lib\screens\sign_up.dart
 import 'package:echo_trail/screens/login.dart';
-import 'package:flutter/material.dart'; // Required for SystemUiOverlayStyle
+import 'package:echo_trail/services/auth_service.dart';
+import 'package:echo_trail/screens/dashboard.dart';
+import 'package:flutter/material.dart';
 
-// --- Color Constants --- (Extracted from the image)
-const Color kBackgroundColor = Color(0xFFE3F2FD); // Light blue background
-const Color kPrimaryTextColor = Color(
-  0xFF1A237E,
-); // Dark blue for headings/buttons
-const Color kSecondaryTextColor = Color(
-  0xFF5A6A7D,
-); // Darker Gray for subheadings
-const Color kHintTextColor = Color(0xFF757575); // Grey for hints
-const Color kButtonBlueColor = Color(0xFF10164D); // Dark blue for active button
-const Color kButtonGreyColor = Color(0xFFBDBDBD); // Grey for inactive button
-const Color kButtonTextLightColor = Color(
-  0xFF10164D,
-); // Very light grey/white for grey button text
-const Color kUnderlineColor = Color(0xFF2196F3); // Bright blue for underline
+const Color kBackgroundColor = Color(0xFFE3F2FD);
+const Color kPrimaryTextColor = Color(0xFF1A237E);
+const Color kSecondaryTextColor = Color(0xFF5A6A7D);
+const Color kHintTextColor = Color(0xFF757575);
+const Color kButtonBlueColor = Color(0xFF10164D);
+const Color kButtonGreyColor = Color(0xFFBDBDBD);
+const Color kButtonTextLightColor = Color(0xFF10164D);
+const Color kUnderlineColor = Color(0xFF2196F3);
 
-class SignUpScreen extends StatelessWidget {
+class SignUpScreen extends StatefulWidget {
   const SignUpScreen({super.key});
+
+  @override
+  State<SignUpScreen> createState() => _SignUpScreenState();
+}
+
+class _SignUpScreenState extends State<SignUpScreen> {
+  final nameController = TextEditingController();
+  final emailController = TextEditingController();
+  final passwordController = TextEditingController();
+  final auth = AuthService();
+  bool isLoading = false;
+
+  void handleSignUp() async {
+    setState(() => isLoading = true);
+
+    if (nameController.text.isEmpty ||
+        emailController.text.isEmpty ||
+        passwordController.text.isEmpty) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please fill all fields')),
+      );
+      setState(() => isLoading = false);
+      return;
+    }
+
+    // Use AuthService to handle registration
+    final success = await auth.register(
+      nameController.text.trim(),
+      emailController.text.trim(),
+      passwordController.text.trim(),
+    );
+
+    if (!mounted) return;
+
+    if (success) {
+      // Attempt login
+      final loginSuccess = await auth.login(
+        emailController.text.trim(),
+        passwordController.text.trim(),
+      );
+
+      if (!mounted) return;
+
+      if (loginSuccess) {
+        Navigator.pushReplacement(
+          context,
+          PageRouteBuilder(
+            transitionDuration: const Duration(milliseconds: 900),
+            pageBuilder: (_, __, ___) => const HomeScreen(),
+            transitionsBuilder: (_, animation, __, child) =>
+                FadeTransition(opacity: animation, child: child),
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Registration successful! Please login.')),
+        );
+        Navigator.pushReplacement(
+          context,
+          PageRouteBuilder(
+            transitionDuration: const Duration(milliseconds: 900),
+            pageBuilder: (_, __, ___) => const LoginScreen(),
+            transitionsBuilder: (_, animation, __, child) =>
+                FadeTransition(opacity: animation, child: child),
+          ),
+        );
+      }
+    } else {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Registration failed. Please try again.')),
+      );
+    }
+
+    if (!mounted) return;
+    setState(() => isLoading = false);
+  }
 
   @override
   Widget build(BuildContext context) {
     final screenHeight = MediaQuery.of(context).size.height;
     final screenWidth = MediaQuery.of(context).size.width;
-
     return Scaffold(
       backgroundColor: kBackgroundColor,
       body: SafeArea(
@@ -50,8 +123,6 @@ class SignUpScreen extends StatelessWidget {
                 style: TextStyle(fontSize: 16, color: Colors.black),
               ),
               SizedBox(height: screenHeight * 0.04),
-
-              // --- Sign Up / Login Tabs ---
               Row(
                 children: [
                   Expanded(
@@ -75,18 +146,10 @@ class SignUpScreen extends StatelessWidget {
                         Navigator.pushReplacement(
                           context,
                           PageRouteBuilder(
-                            transitionDuration: const Duration(
-                              milliseconds: 900,
-                            ),
-                            pageBuilder:
-                                (context, animation, secondaryAnimation) =>
-                                    const LoginScreen(),
-                            transitionsBuilder: (
-                              context,
-                              animation,
-                              secondaryAnimation,
-                              child,
-                            ) {
+                            transitionDuration: const Duration(milliseconds: 900),
+                            pageBuilder: (context, animation, secondaryAnimation) =>
+                            const LoginScreen(),
+                            transitionsBuilder: (context, animation, secondaryAnimation, child) {
                               return FadeTransition(
                                 opacity: animation,
                                 child: child,
@@ -109,8 +172,6 @@ class SignUpScreen extends StatelessWidget {
                 ],
               ),
               SizedBox(height: screenHeight * 0.05),
-
-              // --- Login Form Section ---
               Text(
                 'Create your account',
                 style: TextStyle(fontSize: 16, color: kSecondaryTextColor),
@@ -119,9 +180,9 @@ class SignUpScreen extends StatelessWidget {
               Material(
                 elevation: 4.0,
                 borderRadius: BorderRadius.circular(10.0),
-                // ignore: deprecated_member_use
                 shadowColor: Colors.grey.withOpacity(0.3),
                 child: TextField(
+                  controller: nameController,
                   keyboardType: TextInputType.name,
                   textCapitalization: TextCapitalization.words,
                   decoration: InputDecoration(
@@ -156,9 +217,9 @@ class SignUpScreen extends StatelessWidget {
               Material(
                 elevation: 4.0,
                 borderRadius: BorderRadius.circular(10.0),
-                // ignore: deprecated_member_use
                 shadowColor: Colors.grey.withOpacity(0.3),
                 child: TextField(
+                  controller: emailController,
                   keyboardType: TextInputType.emailAddress,
                   decoration: InputDecoration(
                     hintText: 'EMAIL',
@@ -189,13 +250,12 @@ class SignUpScreen extends StatelessWidget {
                 ),
               ),
               SizedBox(height: 20),
-
               Material(
                 elevation: 4.0,
                 borderRadius: BorderRadius.circular(10.0),
-                // ignore: deprecated_member_use
                 shadowColor: Colors.grey.withOpacity(0.3),
                 child: TextField(
+                  controller: passwordController,
                   obscureText: true,
                   decoration: InputDecoration(
                     hintText: 'PASSWORD',
@@ -226,16 +286,12 @@ class SignUpScreen extends StatelessWidget {
                 ),
               ),
               SizedBox(height: screenHeight * 0.04),
-
               Center(
                 child: SizedBox(
-                  width:
-                      screenWidth * 0.3, // Adjusted width (60% of screen width)
+                  width: screenWidth * 0.3,
                   height: 50,
                   child: ElevatedButton(
-                    onPressed: () {
-                      //print('Login Button Tapped');
-                    },
+                    onPressed: isLoading ? null : handleSignUp,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: kButtonBlueColor,
                       foregroundColor: Colors.white,
@@ -244,7 +300,7 @@ class SignUpScreen extends StatelessWidget {
                       ),
                       elevation: 5,
                     ),
-                    child: Text('Sign Up'),
+                    child: Text(isLoading ? 'Signing up...' : 'Sign Up'),
                   ),
                 ),
               ),

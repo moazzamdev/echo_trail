@@ -1,9 +1,14 @@
+// Path: lib/screens/dashboard.dart
+import 'dart:async';
 import 'package:echo_trail/screens/setting.dart';
-import 'package:echo_trail/screens/speech_text.dart';
 import 'package:flutter/material.dart';
-
-// ignore: depend_on_referenced_packages
+import 'package:echo_trail/services/auth_service.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:flutter_tts/flutter_tts.dart';
+import 'package:battery_plus/battery_plus.dart';
+import 'package:provider/provider.dart';
+import 'package:echo_trail/services/app_state.dart';
+import '../../main.dart';
 
 Future<void> requestPermissions() async {
   await [
@@ -18,46 +23,96 @@ Future<void> requestPermissions() async {
   ].request();
 }
 
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
-  // Define the colors used in the design
-  static const Color lightBlueBackground = Color(
-    0xFFE3F2FD,
-  ); // A light blue color
-  static const Color darkBlueCard = Color(
-    0xFF10164D,
-  ); // A deep indigo/dark blue
+  static const Color lightBlueBackground = Color(0xFFE3F2FD);
+  static const Color darkBlueCard = Color(0xFF10164D);
   static const Color whiteText = Colors.white;
   static const Color redDot = Colors.red;
-  static const Color tealAccent = Color(
-    0xFF64FFDA,
-  ); // A bright teal for the graphic
+  static const Color tealAccent = Color(0xFF64FFDA);
+
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  final AuthService _authService = AuthService();
+  String? _userName;
+  late String _formattedDate;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUserName();
+    _setFormattedDate();
+    _startVoiceRecognition();
+  }
+
+  void _setFormattedDate() {
+    final now = DateTime.now();
+    final months = [
+      'January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December'
+    ];
+    _formattedDate = '${now.day} ${months[now.month - 1]} ${now.year}';
+  }
+
+  Future<void> _loadUserName() async {
+    try {
+      final name = await _authService.getUserNameForDashboard();
+      setState(() {
+        _userName = name;
+      });
+    } catch (e) {
+      print("Error loading user name: $e");
+      setState(() {
+        _userName = 'User';
+      });
+    }
+  }
+
+  Future<void> _startVoiceRecognition() async {
+    final micStatus = await Permission.microphone.request();
+    if (micStatus != PermissionStatus.granted) {
+      debugPrint('❌ Microphone permission denied');
+      return;
+    }
+
+    try {
+      await voiceService.init();
+      voiceService.startVoiceRecognition();
+    } catch (e) {
+      debugPrint("❌ Failed to start voice recognition: $e");
+    }
+  }
+
+  @override
+  void dispose() {
+    voiceService.stop();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    requestPermissions();
     return Scaffold(
-      backgroundColor: lightBlueBackground,
+      backgroundColor: HomeScreen.lightBlueBackground,
       body: SafeArea(
-        // Ensures content is below status bar
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16.0), // Padding around the content
+        child: _userName == null
+            ? const Center(child: CircularProgressIndicator())
+            : SingleChildScrollView(
+          padding: const EdgeInsets.all(16.0),
           child: Column(
-            crossAxisAlignment:
-                CrossAxisAlignment.stretch, // Stretch cards horizontally
-            children: <Widget>[
-              // Header Card
-              HeaderCard(name: 'Umar', date: '01 January  2025'),
+            children: [
+              HeaderCard(name: _userName!, date: _formattedDate),
               const SizedBox(height: 16.0),
-              NavigationCard(), // Space between cards
-              // Navigation Card
-              const SizedBox(height: 16.0), // Space between cards
-              // Belt Tracking Card
+              NavigationCard(),
+              const SizedBox(height: 16.0),
               BeltTrackingCard(),
-              const SizedBox(height: 16.0), // Space between cards
-              // Alarm Card
-              AlarmCard(),
+              const SizedBox(height: 16.0),
+              const AlarmCard(),
+              const SizedBox(height: 16.0),
+              const BatteryCard(),
             ],
           ),
         ),
@@ -66,7 +121,6 @@ class HomeScreen extends StatelessWidget {
   }
 }
 
-// Custom Widget for the Header Card
 class HeaderCard extends StatelessWidget {
   final String name;
   final String date;
@@ -75,9 +129,7 @@ class HeaderCard extends StatelessWidget {
 
   static const Color darkBlueCard = Color(0xFF10164D);
   static const Color whiteText = Colors.white;
-  static const Color tealAccent = Color(
-    0xFF64FFDA,
-  ); // A bright teal for the graphic
+  static const Color tealAccent = Color(0xFF64FFDA);
 
   @override
   Widget build(BuildContext context) {
@@ -86,40 +138,32 @@ class HeaderCard extends StatelessWidget {
         padding: const EdgeInsets.only(left: 20, top: 20, bottom: 20),
         decoration: BoxDecoration(
           color: darkBlueCard,
-          borderRadius: BorderRadius.circular(15.0), // Rounded corners
+          borderRadius: BorderRadius.circular(15.0),
         ),
         child: Stack(
-          // Use Stack to place the graphic behind the text
           children: [
-            // Background Graphic (Simplified representation)
             Positioned(
               top: 0,
               bottom: 0,
               right: 0,
               child: Row(
-                // Using a Row to place circles next to each other
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   const SizedBox(width: 20),
-                  // 2. Use the CustomPainter in your widget tree
                   SizedBox(
-                    width: 120, // Adjust size as needed
-                    height: 130, // Adjust size as needed
+                    width: 120,
+                    height: 130,
                     child: CustomPaint(
-                      // You can provide an explicit size to the painter
                       size: Size(70, 60),
-                      // Or let it take the size from the parent Container
-                      // size: Size.infinite,
                       painter: ConcentricArcPainter(),
                     ),
                   ),
                 ],
               ),
             ),
-            // Text and Icon Content
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min, // Keep column size minimal
+              mainAxisSize: MainAxisSize.min,
               children: <Widget>[
                 Text(
                   'Hello, $name',
@@ -135,10 +179,7 @@ class HeaderCard extends StatelessWidget {
                     Text(
                       date,
                       style: TextStyle(
-                        // ignore: deprecated_member_use
-                        color: whiteText.withOpacity(
-                          0.8,
-                        ), // Slightly less opaque
+                        color: whiteText.withOpacity(0.8),
                         fontSize: 16.0,
                       ),
                     ),
@@ -148,18 +189,9 @@ class HeaderCard extends StatelessWidget {
                         Navigator.push(
                           context,
                           PageRouteBuilder(
-                            transitionDuration: const Duration(
-                              milliseconds: 900,
-                            ),
-                            pageBuilder:
-                                (context, animation, secondaryAnimation) =>
-                                    SettingsScreen(),
-                            transitionsBuilder: (
-                              context,
-                              animation,
-                              secondaryAnimation,
-                              child,
-                            ) {
+                            transitionDuration: const Duration(milliseconds: 900),
+                            pageBuilder: (context, animation, secondaryAnimation) => SettingsScreen(),
+                            transitionsBuilder: (context, animation, secondaryAnimation, child) {
                               return FadeTransition(
                                 opacity: animation,
                                 child: child,
@@ -169,8 +201,7 @@ class HeaderCard extends StatelessWidget {
                         );
                       },
                       icon: Icon(
-                        Icons.settings_outlined, // Settings icon
-                        // ignore: deprecated_member_use
+                        Icons.settings_outlined,
                         color: whiteText.withOpacity(0.8),
                         size: 20.0,
                       ),
@@ -186,13 +217,12 @@ class HeaderCard extends StatelessWidget {
   }
 }
 
-// Custom Widget for the Feature Cards
 class FeatureCard extends StatelessWidget {
   final IconData icon;
   final String title;
   final String description;
-  final String? status; // Optional status text (like Disconnected or time)
-  final Color statusColor; // Optional color for the status text/dot
+  final String? status;
+  final Color statusColor;
 
   const FeatureCard({
     super.key,
@@ -200,7 +230,7 @@ class FeatureCard extends StatelessWidget {
     required this.title,
     required this.description,
     this.status,
-    this.statusColor = Colors.white, // Default status color is white
+    this.statusColor = Colors.white,
   });
 
   static const Color darkBlueCard = Color(0xFF10164D);
@@ -212,19 +242,18 @@ class FeatureCard extends StatelessWidget {
       padding: const EdgeInsets.all(20.0),
       decoration: BoxDecoration(
         color: darkBlueCard,
-        borderRadius: BorderRadius.circular(15.0), // Rounded corners
+        borderRadius: BorderRadius.circular(15.0),
       ),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start, // Align items to the top
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
           Icon(
             icon,
             color: whiteText,
-            size: 40.0, // Adjust icon size
+            size: 40.0,
           ),
-          const SizedBox(width: 20.0), // Space between icon and text
+          const SizedBox(width: 20.0),
           Expanded(
-            // Allows text to take up remaining space and wrap
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
@@ -237,12 +266,10 @@ class FeatureCard extends StatelessWidget {
                   ),
                 ),
                 if (status != null) ...[
-                  // Add status row if status is provided
                   const SizedBox(height: 4.0),
                   Row(
                     children: [
-                      if (statusColor ==
-                          Colors.red) // Add red dot if status is red
+                      if (statusColor == Colors.red)
                         Container(
                           width: 8,
                           height: 8,
@@ -255,21 +282,18 @@ class FeatureCard extends StatelessWidget {
                       Text(
                         status!,
                         style: TextStyle(
-                          color: statusColor, // Use provided status color
+                          color: statusColor,
                           fontSize: 14.0,
                         ),
                       ),
                     ],
                   ),
                 ],
-                const SizedBox(
-                  height: 8.0,
-                ), // Space between title/status and description
+                const SizedBox(height: 8.0),
                 Text(
                   description,
                   style: TextStyle(
-                    // ignore: deprecated_member_use
-                    color: whiteText.withOpacity(0.8), // Slightly less opaque
+                    color: whiteText.withOpacity(0.8),
                     fontSize: 14.0,
                   ),
                 ),
@@ -285,35 +309,24 @@ class FeatureCard extends StatelessWidget {
 class ConcentricArcPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
-    // --- Configuration ---
-    final Color outerArcColor = Color(0xFFaab1c9); // Pale lavender/grey
-    final Color innerArcColor = Color(0xFF4e8c97); // Teal/blue-green
-
-    // Adjust stroke width if needed (might look better slightly thinner)
-    final double strokeWidth = 15.0; // Let's try 8.0
-
-    // Center remains the same
+    final Color outerArcColor = Color(0xFFaab1c9);
+    final Color innerArcColor = Color(0xFF4e8c97);
+    final double strokeWidth = 15.0;
     final Offset center = Offset(size.width / 2, size.height / 2);
-    final double outerRadius = size.width * 0.46; // e.g., 43% of the way out
-    final double innerRadius = size.width * 0.27; // e.g., 25% of the way out
+    final double outerRadius = size.width * 0.46;
+    final double innerRadius = size.width * 0.27;
+    final Paint outerPaint = Paint()
+      ..color = outerArcColor
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = strokeWidth
+      ..strokeCap = StrokeCap.butt;
+    final Paint innerPaint = Paint()
+      ..color = innerArcColor
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = strokeWidth
+      ..strokeCap = StrokeCap.butt;
+    final double sweepAngle = 4.7;
 
-    final Paint outerPaint =
-        Paint()
-          ..color = outerArcColor
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = strokeWidth
-          ..strokeCap = StrokeCap.butt; // Use .round for rounded ends
-
-    final Paint innerPaint =
-        Paint()
-          ..color = innerArcColor
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = strokeWidth
-          ..strokeCap = StrokeCap.butt; // Use .round for rounded ends
-    final double sweepAngle =
-        4.7; // Radians (~260 degrees) Adjust slightly if needed
-
-    // --- Drawing ---
     final Rect outerRect = Rect.fromCircle(center: center, radius: outerRadius);
     final Rect innerRect = Rect.fromCircle(center: center, radius: innerRadius);
 
@@ -322,71 +335,53 @@ class ConcentricArcPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) {
-    return false;
-  }
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
 class NavigationCard extends StatelessWidget {
-  // Define the specific dark blue color from the image
-  final Color cardBackgroundColor = const Color(0xFF10164D); // Adjust if needed
+  final Color cardBackgroundColor = const Color(0xFF10164D);
   final String iconPath = 'assets/images/navigation.png';
 
-  const NavigationCard({super.key}); // Make sure this path is correct
+  const NavigationCard({super.key});
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      // Constrain the width if necessary, otherwise it will expand
-      // width: 350, // Example fixed width
       decoration: BoxDecoration(
         color: cardBackgroundColor,
-        borderRadius: BorderRadius.circular(16.0), // Adjust rounding as needed
+        borderRadius: BorderRadius.circular(16.0),
       ),
-      padding: const EdgeInsets.symmetric(
-        horizontal: 24.0,
-        vertical: 28.0,
-      ), // Adjust padding
+      padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 28.0),
       child: Column(
-        mainAxisSize: MainAxisSize.min, // Make column height fit content
-        crossAxisAlignment:
-            CrossAxisAlignment.start, // Align content to the left
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
-            crossAxisAlignment:
-                CrossAxisAlignment.start, // Align icon top with text top
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Icon
               Image.asset(iconPath),
-              const SizedBox(width: 45.0), // Space between icon and text
-              // Title Text - Expanded allows text wrapping
+              const SizedBox(width: 45.0),
               Expanded(
                 child: Text(
-                  'Navigation and\nObstacle\nGuidance', // Use \n for line breaks
+                  'Navigation and\nObstacle\nGuidance',
                   style: TextStyle(
                     color: Colors.white,
-                    fontSize: 26.0, // Adjust font size
+                    fontSize: 26.0,
                     fontWeight: FontWeight.bold,
-                    height: 1.3, // Adjust line spacing
+                    height: 1.3,
                   ),
                 ),
               ),
             ],
           ),
-          const SizedBox(
-            height: 24.0,
-          ), // Space between title row and description
-          // Description Text
+          const SizedBox(height: 24.0),
           Center(
             child: Text(
               textAlign: TextAlign.center,
-              'Allowing users to navigate their path freely', // Corrected "their"
+              'Allowing users to navigate their path freely',
               style: TextStyle(
-                // ignore: deprecated_member_use
-                color: Colors.white.withOpacity(
-                  0.9,
-                ), // Slightly transparent white
-                fontSize: 14.0, // Adjust font size
+                color: Colors.white.withOpacity(0.9),
+                fontSize: 14.0,
               ),
             ),
           ),
@@ -397,83 +392,59 @@ class NavigationCard extends StatelessWidget {
 }
 
 class BeltTrackingCard extends StatelessWidget {
-  // Define colors matching the image
-  final Color cardBackgroundColor = const Color(0xFF10164D); // Same dark blue
-  final Color statusDotColor = Colors.red; // Red dot for disconnected status
+  final Color cardBackgroundColor = const Color(0xFF10164D);
+  final Color statusDotColor = Colors.red;
   final String iconPath = 'assets/images/seat-belt.png';
 
-  const BeltTrackingCard({super.key}); // MAKE SURE THIS PATH IS CORRECT
+  const BeltTrackingCard({super.key});
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      // Constrain width if needed
-      // width: 350,
       decoration: BoxDecoration(
         color: cardBackgroundColor,
-        borderRadius: BorderRadius.circular(16.0), // Adjust rounding
+        borderRadius: BorderRadius.circular(16.0),
       ),
-      padding: const EdgeInsets.symmetric(
-        horizontal: 24.0,
-        vertical: 28.0,
-      ), // Adjust padding
+      padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 28.0),
       child: Column(
-        mainAxisSize: MainAxisSize.min, // Fit content vertically
-        crossAxisAlignment: CrossAxisAlignment.start, // Align content left
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Top Section: Icon + Title/Status
           Row(
-            crossAxisAlignment:
-                CrossAxisAlignment.start, // Align icon top with text block top
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Icon
               Image.asset(iconPath, color: Colors.white),
-              const SizedBox(width: 45.0), // Space between icon and text block
-              // Title and Status Column
-              // Use Expanded to prevent potential overflow issues if text is long
+              const SizedBox(width: 45.0),
               Expanded(
                 child: Column(
-                  crossAxisAlignment:
-                      CrossAxisAlignment.start, // Align text left
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Title Text
                     Text(
                       'Belt Tracking',
                       style: TextStyle(
                         color: Colors.white,
-                        fontSize: 26.0, // Adjust font size
+                        fontSize: 26.0,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
-                    const SizedBox(
-                      height: 8.0,
-                    ), // Space between title and status
-                    // Status Row (Dot + Text)
+                    const SizedBox(height: 8.0),
                     Row(
-                      // Vertically center the dot and the status text
                       crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
-                        // Status Dot
                         Container(
-                          width: 12.0, // Adjust dot size
-                          height: 12.0, // Adjust dot size
+                          width: 12.0,
+                          height: 12.0,
                           decoration: BoxDecoration(
                             color: statusDotColor,
-                            shape: BoxShape.circle, // Make it circular
+                            shape: BoxShape.circle,
                           ),
                         ),
-                        const SizedBox(
-                          width: 8.0,
-                        ), // Space between dot and text
-                        // Status Text
+                        const SizedBox(width: 8.0),
                         Text(
                           'Disconnected',
                           style: TextStyle(
-                            // ignore: deprecated_member_use
-                            color: Colors.red.withOpacity(
-                              0.9,
-                            ), // Slightly transparent white
-                            fontSize: 16.0, // Adjust font size
+                            color: statusDotColor.withOpacity(0.9),
+                            fontSize: 16.0,
                           ),
                         ),
                       ],
@@ -483,20 +454,14 @@ class BeltTrackingCard extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(
-            height: 24.0,
-          ), // Space between top section and description
-          // Description Text
+          const SizedBox(height: 24.0),
           Center(
             child: Text(
-              'Belt tracking for users to track their navigation belt', // Corrected "their"
+              'Belt tracking for users to track their navigation belt',
               style: TextStyle(
-                // ignore: deprecated_member_use
-                color: Colors.white.withOpacity(
-                  0.9,
-                ), // Slightly transparent white
-                fontSize: 14.0, // Adjust font size
-                height: 1.4, // Adjust line spacing if needed
+                color: Colors.white.withOpacity(0.9),
+                fontSize: 14.0,
+                height: 1.4,
               ),
             ),
           ),
@@ -506,107 +471,186 @@ class BeltTrackingCard extends StatelessWidget {
   }
 }
 
-class AlarmCard extends StatelessWidget {
-  // Define colors matching the image
-  final Color cardBackgroundColor = const Color(0xFF10164D); // Same dark blue
-  final Color statusDotColor = Colors.red; // Red dot for disconnected status
-  final String iconPath = 'assets/images/alarm.png';
-
+class AlarmCard extends StatefulWidget {
   const AlarmCard({super.key});
 
   @override
+  State<AlarmCard> createState() => _AlarmCardState();
+}
+
+class _AlarmCardState extends State<AlarmCard> {
+  final FlutterTts _tts = FlutterTts();
+
+  @override
+  void initState() {
+    super.initState();
+    _initializeTts();
+  }
+
+  Future<void> _initializeTts() async {
+    await _tts.setLanguage('en-US');
+    await _tts.setSpeechRate(0.5);
+    await _tts.setVolume(1.0);
+    await _tts.setPitch(1.0);
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final appState = Provider.of<AppState>(context);
+    final alarmTimes = appState.alarmTimes;
+
+    final String displayText = alarmTimes.isEmpty
+        ? "No alarms set"
+        : alarmTimes.join(", ");
+
+    print("🔔 AlarmCard updated: $displayText");
+
+    return FeatureCard(
+      icon: Icons.alarm,
+      title: 'Set and Shut Alarm',
+      description: 'Allowing users to set and shut their alarm via voice guidance',
+      status: displayText,
+      statusColor: Colors.white,
+    );
+  }
+}
+
+class BatteryCard extends StatefulWidget {
+  const BatteryCard({super.key});
+
+  @override
+  State<BatteryCard> createState() => _BatteryCardState();
+}
+
+class _BatteryCardState extends State<BatteryCard> {
+  final FlutterTts _tts = FlutterTts();
+  final Battery _battery = Battery();
+  bool _isMonitoring = false;
+  bool _isListening = false;
+  Timer? _monitoringTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    _initializeTts();
+    _startMonitoring();
+  }
+
+  @override
+  void dispose() {
+    _monitoringTimer?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _initializeTts() async {
+    await _tts.setLanguage('en-US');
+    await _tts.setSpeechRate(0.5);
+    await _tts.setVolume(1.0);
+    await _tts.setPitch(1.0);
+  }
+
+  Future<void> _listenForThreshold() async {
+    setState(() => _isListening = true);
+    try {
+      await _tts.speak("What percentage would you like to set for battery threshold?");
+      await Future.delayed(const Duration(seconds: 2));
+      await voiceService.startCommandListener();
+    } catch (e) {
+      setState(() => _isListening = false);
+      await _tts.speak("Failed to start listening for threshold. Please try again.");
+      debugPrint("❌ Failed to start command listener: $e");
+    } finally {
+      setState(() => _isListening = false);
+    }
+  }
+
+  void _startMonitoring() {
+    _monitoringTimer?.cancel();
+    _isMonitoring = true;
+    final appState = Provider.of<AppState>(context, listen: false);
+
+    _monitoringTimer = Timer.periodic(const Duration(seconds: 30), (timer) async {
+      int level = await _battery.batteryLevel;
+
+      if (level <= appState.batteryThreshold && _isMonitoring) {
+        await _tts.speak("Your battery is below ${appState.batteryThreshold} percent. Please charge your device.");
+        _isMonitoring = false;
+        await Future.delayed(const Duration(minutes: 5));
+        _isMonitoring = true;
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final appState = Provider.of<AppState>(context);
+    final threshold = appState.batteryThreshold;
+
     return Container(
-      // Constrain width if needed
-      // width: 350,
+      padding: const EdgeInsets.all(20.0),
       decoration: BoxDecoration(
-        color: cardBackgroundColor,
-        borderRadius: BorderRadius.circular(16.0), // Adjust rounding
+        color: const Color(0xFF10164D),
+        borderRadius: BorderRadius.circular(15.0),
       ),
-      padding: const EdgeInsets.symmetric(
-        horizontal: 24.0,
-        vertical: 28.0,
-      ), // Adjust padding
-      child: Column(
-        mainAxisSize: MainAxisSize.min, // Fit content vertically
-        crossAxisAlignment: CrossAxisAlignment.start, // Align content left
-        children: [
-          // Top Section: Icon + Title/Status
-          Row(
-            crossAxisAlignment:
-                CrossAxisAlignment.start, // Align icon top with text block top
-            children: [
-              // Icon
-              Image.asset(iconPath, color: Colors.white),
-              const SizedBox(width: 45.0), // Space between icon and text block
-              // Title and Status Column
-              // Use Expanded to prevent potential overflow issues if text is long
-              Expanded(
-                child: Column(
-                  crossAxisAlignment:
-                      CrossAxisAlignment.start, // Align text left
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          const Icon(
+            Icons.battery_alert,
+            color: Colors.white,
+            size: 40.0,
+          ),
+          const SizedBox(width: 20.0),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                const Text(
+                  'Battery Threshold',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 20.0,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 4.0),
+                Row(
                   children: [
-                    // Title Text
-                    Text(
-                      'Set and Shut Alarm',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 26.0, // Adjust font size
-                        fontWeight: FontWeight.bold,
+                    Container(
+                      width: 8,
+                      height: 8,
+                      decoration: const BoxDecoration(
+                        color: Colors.orange,
+                        shape: BoxShape.circle,
                       ),
+                      margin: const EdgeInsets.only(right: 4.0),
                     ),
-                    const SizedBox(
-                      height: 8.0,
-                    ), // Space between title and status
-                    // Status Row (Dot + Text)
-                    Row(
-                      // Vertically center the dot and the status text
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        // Status Dot
-                        // Container(
-                        //   width: 12.0, // Adjust dot size
-                        //   height: 12.0, // Adjust dot size
-                        //   decoration: BoxDecoration(
-                        //     color: statusDotColor,
-                        //     shape: BoxShape.circle, // Make it circular
-                        //   ),
-                        // ),
-                        const SizedBox(width: 0), // Space between dot and text
-                        // Status Text
-                        Text(
-                          '7:30 pm',
-                          style: TextStyle(
-                            // ignore: deprecated_member_use
-                            color: Colors.white.withOpacity(
-                              0.9,
-                            ), // Slightly transparent white
-                            fontSize: 16.0, // Adjust font size
-                          ),
-                        ),
-                      ],
+                    Text(
+                      "$threshold%",
+                      style: const TextStyle(
+                        color: Colors.orange,
+                        fontSize: 14.0,
+                      ),
                     ),
                   ],
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(
-            height: 24.0,
-          ), // Space between top section and description
-          // Description Text
-          Center(
-            child: Text(
-              'Allowing users to set and shut there alarm via voice guidance', // Corrected "their"
-              style: TextStyle(
-                // ignore: deprecated_member_use
-                color: Colors.white.withOpacity(
-                  0.9,
-                ), // Slightly transparent white
-                fontSize: 14.0, // Adjust font size
-                height: 1.4, // Adjust line spacing if needed
-              ),
+                const SizedBox(height: 8.0),
+                Text(
+                  'Get a warning when battery is low.',
+                  style: TextStyle(
+                    color: Colors.white.withOpacity(0.8),
+                    fontSize: 14.0,
+                  ),
+                ),
+              ],
             ),
+          ),
+          IconButton(
+            icon: Icon(
+              _isListening ? Icons.mic_none : Icons.mic,
+              color: Colors.white,
+            ),
+            onPressed: _isListening ? null : _listenForThreshold,
           ),
         ],
       ),

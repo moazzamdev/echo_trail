@@ -1,25 +1,61 @@
+// echotrail_frontend\echo_trail\lib\screens\login.dart
+
 import 'package:echo_trail/screens/dashboard.dart';
 import 'package:echo_trail/screens/sign_up.dart';
-import 'package:flutter/material.dart'; // Required for SystemUiOverlayStyle
+import 'package:echo_trail/services/auth_service.dart';
+import 'package:flutter/material.dart';
 
-// --- Color Constants --- (Extracted from the image)
-const Color kBackgroundColor = Color(0xFFE3F2FD); // Light blue background
-const Color kPrimaryTextColor = Color(
-  0xFF1A237E,
-); // Dark blue for headings/buttons
-const Color kSecondaryTextColor = Color(
-  0xFF5A6A7D,
-); // Darker Gray for subheadings
-const Color kHintTextColor = Color(0xFF757575); // Grey for hints
-const Color kButtonBlueColor = Color(0xFF10164D); // Dark blue for active button
-const Color kButtonGreyColor = Color(0xFFBDBDBD); // Grey for inactive button
-const Color kButtonTextLightColor = Color(
-  0xFF10164D,
-); // Very light grey/white for grey button text
-const Color kUnderlineColor = Color(0xFF2196F3); // Bright blue for underline
+// --- Color Constants ---
+const Color kBackgroundColor = Color(0xFFE3F2FD);
+const Color kPrimaryTextColor = Color(0xFF1A237E);
+const Color kSecondaryTextColor = Color(0xFF5A6A7D);
+const Color kHintTextColor = Color(0xFF757575);
+const Color kButtonBlueColor = Color(0xFF10164D);
+const Color kButtonGreyColor = Color(0xFFBDBDBD);
+const Color kButtonTextLightColor = Color(0xFF10164D);
+const Color kUnderlineColor = Color(0xFF2196F3);
 
-class LoginScreen extends StatelessWidget {
+class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
+
+  @override
+  State<LoginScreen> createState() => _LoginScreenState();
+}
+
+class _LoginScreenState extends State<LoginScreen> {
+  final emailController = TextEditingController();
+  final passwordController = TextEditingController();
+  final auth = AuthService();
+  bool isLoading = false;
+
+  void handleLogin() async {
+    setState(() => isLoading = true);
+
+    final success = await auth.login(
+      emailController.text.trim(),
+      passwordController.text.trim(),
+    );
+
+    setState(() => isLoading = false);
+
+    if (success) {
+      if (!mounted) return;
+      Navigator.pushReplacement(
+        context,
+        PageRouteBuilder(
+          transitionDuration: const Duration(milliseconds: 900),
+          pageBuilder: (_, __, ___) => const HomeScreen(),
+          transitionsBuilder: (_, animation, __, child) =>
+              FadeTransition(opacity: animation, child: child),
+        ),
+      );
+    } else {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Login failed. Check your credentials.')),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -43,10 +79,10 @@ class LoginScreen extends StatelessWidget {
                   color: kPrimaryTextColor,
                 ),
               ),
-              SizedBox(height: 4),
+              const SizedBox(height: 4),
               Container(height: 4, width: 100, color: kUnderlineColor),
-              SizedBox(height: 12),
-              Text(
+              const SizedBox(height: 12),
+              const Text(
                 'Login to your account.',
                 style: TextStyle(fontSize: 16, color: Colors.black),
               ),
@@ -61,23 +97,10 @@ class LoginScreen extends StatelessWidget {
                         Navigator.pushReplacement(
                           context,
                           PageRouteBuilder(
-                            transitionDuration: const Duration(
-                              milliseconds: 900,
-                            ),
-                            pageBuilder:
-                                (context, animation, secondaryAnimation) =>
-                                    const SignUpScreen(),
-                            transitionsBuilder: (
-                              context,
-                              animation,
-                              secondaryAnimation,
-                              child,
-                            ) {
-                              return FadeTransition(
-                                opacity: animation,
-                                child: child,
-                              );
-                            },
+                            transitionDuration: const Duration(milliseconds: 900),
+                            pageBuilder: (_, __, ___) => const SignUpScreen(),
+                            transitionsBuilder: (_, animation, __, child) =>
+                                FadeTransition(opacity: animation, child: child),
                           ),
                         );
                       },
@@ -87,12 +110,12 @@ class LoginScreen extends StatelessWidget {
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(8),
                         ),
-                        padding: EdgeInsets.symmetric(vertical: 20),
+                        padding: const EdgeInsets.symmetric(vertical: 20),
                       ),
-                      child: Text('Sign Up'),
+                      child: const Text('Sign Up'),
                     ),
                   ),
-                  SizedBox(width: 15),
+                  const SizedBox(width: 15),
                   Expanded(
                     child: ElevatedButton(
                       onPressed: () {},
@@ -102,9 +125,9 @@ class LoginScreen extends StatelessWidget {
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(8),
                         ),
-                        padding: EdgeInsets.symmetric(vertical: 20),
+                        padding: const EdgeInsets.symmetric(vertical: 20),
                       ),
-                      child: Text('Login'),
+                      child: const Text('Login'),
                     ),
                   ),
                 ],
@@ -112,78 +135,64 @@ class LoginScreen extends StatelessWidget {
               SizedBox(height: screenHeight * 0.05),
 
               // --- Login Form Section ---
-              Text(
+              const Text(
                 'Login into your account',
                 style: TextStyle(fontSize: 16, color: kSecondaryTextColor),
               ),
-              SizedBox(height: 20),
+              const SizedBox(height: 20),
 
+              // --- Email Field ---
               Material(
                 elevation: 4.0,
                 borderRadius: BorderRadius.circular(10.0),
-                // ignore: deprecated_member_use
-                shadowColor: Colors.grey.withOpacity(0.3),
+                shadowColor: Colors.grey.withAlpha((0.3 * 255).toInt()),
                 child: TextField(
+                  controller: emailController,
                   keyboardType: TextInputType.emailAddress,
                   decoration: InputDecoration(
                     hintText: 'EMAIL',
-                    hintStyle: TextStyle(
+                    hintStyle: const TextStyle(
                       color: kHintTextColor,
                       letterSpacing: 1.5,
                       fontSize: 12,
                     ),
                     filled: true,
                     fillColor: Colors.white,
-                    contentPadding: EdgeInsets.symmetric(
+                    contentPadding: const EdgeInsets.symmetric(
                       vertical: 15.0,
                       horizontal: 20.0,
                     ),
                     border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10.0),
-                      borderSide: BorderSide.none,
-                    ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10.0),
-                      borderSide: BorderSide.none,
-                    ),
-                    focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(10.0),
                       borderSide: BorderSide.none,
                     ),
                   ),
                 ),
               ),
-              SizedBox(height: 20),
+              const SizedBox(height: 20),
 
+              // --- Password Field ---
               Material(
                 elevation: 4.0,
                 borderRadius: BorderRadius.circular(10.0),
-                // ignore: deprecated_member_use
-                shadowColor: Colors.grey.withOpacity(0.3),
+                shadowColor: Colors.grey.withAlpha((0.3 * 255).toInt()),
                 child: TextField(
+                  controller: passwordController,
                   obscureText: true,
                   decoration: InputDecoration(
                     hintText: 'PASSWORD',
-                    hintStyle: TextStyle(
+                    hintStyle: const TextStyle(
                       color: kHintTextColor,
                       letterSpacing: 1.5,
                       fontSize: 12,
                     ),
                     filled: true,
                     fillColor: Colors.white,
-                    contentPadding: EdgeInsets.symmetric(
+                    contentPadding: const EdgeInsets.symmetric(
                       vertical: 15.0,
                       horizontal: 20.0,
                     ),
                     border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10.0),
-                      borderSide: BorderSide.none,
-                    ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10.0),
-                      borderSide: BorderSide.none,
-                    ),
-                    focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(10.0),
                       borderSide: BorderSide.none,
                     ),
@@ -192,34 +201,13 @@ class LoginScreen extends StatelessWidget {
               ),
               SizedBox(height: screenHeight * 0.04),
 
+              // --- Login Button ---
               Center(
                 child: SizedBox(
-                  width:
-                      screenWidth * 0.3, // Adjusted width (60% of screen width)
+                  width: screenWidth * 0.5,
                   height: 50,
                   child: ElevatedButton(
-                    onPressed: () {
-                      Navigator.pushReplacement(
-                        context,
-                        PageRouteBuilder(
-                          transitionDuration: const Duration(milliseconds: 900),
-                          pageBuilder:
-                              (context, animation, secondaryAnimation) =>
-                                  const HomeScreen(),
-                          transitionsBuilder: (
-                            context,
-                            animation,
-                            secondaryAnimation,
-                            child,
-                          ) {
-                            return FadeTransition(
-                              opacity: animation,
-                              child: child,
-                            );
-                          },
-                        ),
-                      );
-                    },
+                    onPressed: isLoading ? null : handleLogin,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: kButtonBlueColor,
                       foregroundColor: Colors.white,
@@ -228,7 +216,7 @@ class LoginScreen extends StatelessWidget {
                       ),
                       elevation: 5,
                     ),
-                    child: Text('Login'),
+                    child: Text(isLoading ? 'Logging in...' : 'Login'),
                   ),
                 ),
               ),

@@ -1,86 +1,72 @@
+// lib\screens\speech_text.dart
 import 'package:flutter/material.dart';
-import 'package:speech_to_text/speech_to_text.dart' as stt;
+import 'package:flutter_tts/flutter_tts.dart';
 import 'package:permission_handler/permission_handler.dart';
+import '../../main.dart'; // to get the global `voiceService`
+
 
 class WakeWordScreen extends StatefulWidget {
+  const WakeWordScreen({super.key});
+
   @override
-  _WakeWordScreenState createState() => _WakeWordScreenState();
+  State<WakeWordScreen> createState() => _WakeWordScreenState();
 }
 
 class _WakeWordScreenState extends State<WakeWordScreen> {
-  late stt.SpeechToText _speech;
+  late FlutterTts _tts;
   bool _isListening = false;
-  final List<String> wakeWords = ['hello', 'echo'];
+  final String _lastSpoken = "";
+  String _errorMessage = "";
 
   @override
   void initState() {
     super.initState();
-    _initSpeech();
+    _tts = FlutterTts();
+    _initializeTts();
+    _startVoiceRecognition();
   }
 
-  Future<void> _initSpeech() async {
-    await Permission.microphone.request();
-    _speech = stt.SpeechToText();
-    bool available = await _speech.initialize(
-      onStatus: _statusListener,
-      onError: (error) => print('Speech error: $error'),
-    );
-    if (available) _startWakeWordListening();
-  }
-
-  void _statusListener(String status) {
-    if (status == 'done' || status == 'notListening') {
-      Future.delayed(Duration(milliseconds: 500), () {
-        if (!_speech.isListening) _startWakeWordListening();
-      });
+  Future<void> _initializeTts() async {
+    try {
+      await _tts.setLanguage('en-US');
+      await _tts.setSpeechRate(0.5);
+      await _tts.setVolume(1.0);
+      await _tts.setPitch(1.0);
+      await _tts.speak("Say Echo to activate voice commands.");
+    } catch (e) {
+      debugPrint('❌ Failed to initialize TTS: $e');
+      setState(() => _errorMessage = 'Failed to initialize text-to-speech');
     }
   }
 
-  void _startWakeWordListening() {
-    if (_isListening) return;
-    _isListening = true;
+  Future<void> _startVoiceRecognition() async {
+    final micStatus = await Permission.microphone.request();
+    if (micStatus != PermissionStatus.granted) {
+      debugPrint('❌ Microphone permission denied');
+      setState(() => _errorMessage = 'Microphone permission denied');
+      await _tts.speak('Microphone permission denied. Please grant permission in settings.');
+      return;
+    }
 
-    _speech.listen(
-      onResult: (result) {
-        String spokenText = result.recognizedWords.toLowerCase();
-        print('Heard: $spokenText');
-        if (wakeWords.any((word) => spokenText.contains(word))) {
-          _showWakePopup(spokenText);
-        }
-      },
-      listenMode: stt.ListenMode.dictation,
-      partialResults: true,
-      cancelOnError: false,
-      pauseFor: Duration(seconds: 5),
-    );
+    try {
+      await voiceService.init(); // ✅ Init first — ensures `_initialized = true`
+      voiceService.startVoiceRecognition(); // ✅ Start listening
+      setState(() {
+        _isListening = true;
+        _errorMessage = "";
+      });
+    } catch (e) {
+      debugPrint("❌ Failed to start voice recognition: $e");
+      setState(() => _errorMessage = 'Failed to start voice recognition');
+      await _tts.speak('Failed to start voice recognition. Please try again.');
+    }
   }
 
-  void _showWakePopup(String text) {
-    _speech.stop();
-    _isListening = false;
-
-    showDialog(
-      context: context,
-      builder:
-          (_) => AlertDialog(
-            title: Text('Wake word detected!'),
-            content: Text('You said: $text'),
-            actions: [
-              TextButton(
-                onPressed: () {
-                  Navigator.pop(context);
-                  _startWakeWordListening();
-                },
-                child: Text('OK'),
-              ),
-            ],
-          ),
-    );
-  }
 
   @override
   void dispose() {
-    _speech.stop();
+    voiceService.stop(); // ✅ Changed from stopListening to stop
+    _tts.stop();
     super.dispose();
   }
 
@@ -89,10 +75,41 @@ class _WakeWordScreenState extends State<WakeWordScreen> {
     return Scaffold(
       backgroundColor: Colors.black,
       body: Center(
-        child: Text(
-          'Say "hello" or "echo" to activate...',
-          style: TextStyle(color: Colors.white, fontSize: 22),
-          textAlign: TextAlign.center,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              _errorMessage.isNotEmpty
+                  ? _errorMessage
+                  : _lastSpoken.isEmpty
+                  ? 'Say "echo" to activate...'
+                  : 'You said: $_lastSpoken',
+              style: TextStyle(
+                color: _errorMessage.isNotEmpty
+                    ? Colors.redAccent
+                    : _isListening
+                    ? Colors.greenAccent
+                    : Colors.white,
+                fontSize: 24,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 20),
+            AnimatedOpacity(
+              opacity: _isListening ? 1.0 : 0.0,
+              duration: const Duration(milliseconds: 300),
+              child: const Text(
+                "Listening for command...",
+                style: TextStyle(color: Colors.grey, fontSize: 16),
+              ),
+            ),
+            const SizedBox(height: 10),
+            AnimatedOpacity(
+              opacity: _isListening ? 1.0 : 0.0,
+              duration: const Duration(milliseconds: 300),
+              child: const CircularProgressIndicator(color: Colors.white),
+            ),
+          ],
         ),
       ),
     );
